@@ -4,7 +4,7 @@ SDL_Renderer *Simulation::renderer;
 SDL_Texture *Simulation::background, *Simulation::player, *Simulation::tile, *Simulation::specialTile, *Simulation::wall, *Simulation::path, *Simulation::visited, *Simulation::specialVisited;
 SDL_Rect Simulation::rect;
 int Simulation::n, Simulation::k, Simulation::currVertex, Simulation::startVertex, Simulation::endVertex, Simulation::moving, Simulation::dijkstraPending, Simulation::sourceVertex;
-unordered_map<int, vector<pair<int, int>>> Simulation::adj;
+unordered_map<int, vector<int>> Simulation::adj;
 unordered_map<int, int> Simulation::weights;
 unordered_map<int, unordered_map<int, int>> Simulation::distances;
 unordered_set<int> Simulation::specialVertices, Simulation::processed, Simulation::pendingSpecial;
@@ -102,13 +102,13 @@ void Simulation::buildGraph()
 			{
 				if (Map::map[col + 1][row] != 1)
 				{
-					adj[n * col + row].emplace_back(n * (col + 1) + row, Map::map[col + 1][row] ? 0 : weights[n * (col + 1) + row]);
-					adj[n * (col + 1) + row].emplace_back(n * col + row, Map::map[col][row] ? 0 : weights[n * col + row]);
+					adj[n * col + row].push_back(n * (col + 1) + row);
+					adj[n * (col + 1) + row].push_back(n * col + row);
 				}
 				if (Map::map[col][row + 1] != 1)
 				{
-					adj[n * col + row].emplace_back(n * col + row + 1, Map::map[col][row + 1] ? 0 : weights[n * col + row + 1]);
-					adj[n * col + row + 1].emplace_back(n * col + row, Map::map[col][row] ? 0 : weights[n * col + row]);
+					adj[n * col + row].push_back(n * col + row + 1);
+					adj[n * col + row + 1].push_back(n * col + row);
 				}
 			}
 	startVertex = n + 1, currVertex = startVertex, endVertex = (n - 2) * (n + 1);
@@ -119,7 +119,7 @@ void Simulation::buildGraph()
 bool Simulation::simulateNextStep()
 {
 	if (dijkstraPending)
-		return nextDijkstra(), false;
+		return nextDijkstraStep(), false;
 	if (moving)
 		return updatePos(), false;
 	if (currVertex == endVertex)
@@ -138,7 +138,7 @@ bool Simulation::simulateNextStep()
 	moving = 0, currVertex = best;
 }
 
-void Simulation::nextDijkstra()
+void Simulation::nextDijkstraStep()
 {
 	SDL_Delay(20);
 	if (pq.empty() || pendingSpecial.empty())
@@ -169,9 +169,9 @@ void Simulation::nextDijkstra()
 	SDL_RenderCopy(renderer, specialVertices.count(v) ? specialVisited : visited, NULL, &rect);
 	Fonts::displayText(renderer, to_string(weights[v]).c_str(), rect.x + rect.w / 2, rect.y + rect.h / 2);
 	SDL_RenderPresent(renderer);
-	for (auto p : adj[v])
+	for (auto u : adj[v])
 	{
-		int u = p.first, w = p.second;
+		int w = specialVertices.count(u) ? 0 : weights[u];
 		if (distances[currVertex][v] + w < distances[currVertex][u])
 			distances[currVertex][u] = distances[currVertex][v] + w, pq.push({-distances[currVertex][u], u});
 	}
