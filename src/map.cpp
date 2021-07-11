@@ -81,7 +81,7 @@ vector<vector<array<bool, 4>>> Map::generateRandomWalls()
 void Map::removeWalls(vector<vector<array<bool, 4>>> &walls)
 {
 	int removed = 0;
-	while (removed < (n / 2) * (n / 2) * REMOVE_PROB)
+	while (removed < int((n / 2) * (n / 2) * REMOVE_PROB))
 	{
 		int row = genRandom(n / 2 - 1), col = genRandom(n / 2 - 1);
 		vector<int> directions;

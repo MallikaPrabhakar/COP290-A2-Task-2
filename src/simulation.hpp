@@ -52,7 +52,6 @@ private:
 
 	static void generateSpecialVertices(int k);
 	static void assignWeights();
-	static void buildGraph();
 	static bool simulateNextStep();
 	static void nextDijkstraStep();
 	static void initDijkstra();

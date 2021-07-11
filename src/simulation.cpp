@@ -4,7 +4,6 @@ SDL_Renderer *Simulation::renderer;
 SDL_Texture *Simulation::background, *Simulation::player, *Simulation::tile, *Simulation::specialTile, *Simulation::wall, *Simulation::path, *Simulation::visited, *Simulation::specialVisited;
 SDL_Rect Simulation::rect;
 int Simulation::n, Simulation::k, Simulation::currVertex, Simulation::startVertex, Simulation::endVertex, Simulation::moving, Simulation::dijkstraPending, Simulation::sourceVertex;
-unordered_map<int, vector<int>> Simulation::adj;
 unordered_map<int, int> Simulation::weights;
 unordered_map<int, unordered_map<int, int>> Simulation::distances;
 unordered_set<int> Simulation::specialVertices, Simulation::processed, Simulation::pendingSpecial;
@@ -48,7 +47,9 @@ void Simulation::beginSimulation(int _n, int _k)
 	Map::generateRandomMaze(n = _n);
 	generateSpecialVertices(k = _k);
 	assignWeights();
-	buildGraph();
+	startVertex = n + 1, currVertex = startVertex, endVertex = (n - 2) * (n + 1);
+	dijkstraPending = k + 1;
+	initDijkstra();
 	moving = 0;
 
 	rect = {0, 0, WINDOW_WIDTH / n, WINDOW_HEIGHT / n};
@@ -80,7 +81,7 @@ void Simulation::generateSpecialVertices(int k)
 				continue;
 			Map::map[col][row] = 2;
 			specialVertices.insert(n * col + row);
-			weights[n * col + row] = Map::genRandom(MAX_COST, MIN_COST);
+			weights[n * col + row] = Map::genRandom(-MIN_COST, -MAX_COST);
 			break;
 		}
 	}
@@ -92,28 +93,6 @@ void Simulation::assignWeights()
 		for (int row = 0; row < n; ++row)
 			if (Map::map[col][row] == 0)
 				weights[n * col + row] = Map::genRandom(MAX_WEIGHT, 1);
-}
-
-void Simulation::buildGraph()
-{
-	for (int col = 1; col < n - 1; ++col)
-		for (int row = 1; row < n - 1; ++row)
-			if (Map::map[col][row] != 1)
-			{
-				if (Map::map[col + 1][row] != 1)
-				{
-					adj[n * col + row].push_back(n * (col + 1) + row);
-					adj[n * (col + 1) + row].push_back(n * col + row);
-				}
-				if (Map::map[col][row + 1] != 1)
-				{
-					adj[n * col + row].push_back(n * col + row + 1);
-					adj[n * col + row + 1].push_back(n * col + row);
-				}
-			}
-	startVertex = n + 1, currVertex = startVertex, endVertex = (n - 2) * (n + 1);
-	dijkstraPending = k + !specialVertices.count(currVertex);
-	initDijkstra();
 }
 
 bool Simulation::simulateNextStep()
@@ -131,7 +110,7 @@ bool Simulation::simulateNextStep()
 	{
 		int tempD = distances[currVertex][vertex];
 		// @TODO: improve the heuristic
-		if (tempD + distances[vertex][endVertex] - weights[vertex] < D && (tempD < d || tempD == d && tempD + distances[vertex][endVertex] - weights[vertex] < d + distances[best][endVertex] - weights[best]))
+		if (tempD + distances[vertex][endVertex] + weights[vertex] < D && (tempD < d || tempD == d && tempD + distances[vertex][endVertex] + weights[vertex] < d + distances[best][endVertex] + weights[best]))
 			best = vertex, d = tempD;
 	}
 	specialVertices.erase(best);
@@ -143,10 +122,6 @@ void Simulation::nextDijkstraStep()
 	SDL_Delay(20);
 	if (pq.empty() || pendingSpecial.empty())
 	{
-		// printf("%d:\n", currVertex);
-		// for (auto p : distances[currVertex])
-		// 	printf("%d\t%d\n", p.first, p.second);
-		// printf("\n");
 		if (--dijkstraPending == 0)
 			currVertex = startVertex;
 		else
@@ -155,6 +130,8 @@ void Simulation::nextDijkstraStep()
 				currVertex = *(it = specialVertices.begin());
 			else
 				currVertex = *++it;
+			if (currVertex == startVertex)
+				return;
 			initDijkstra();
 		}
 		return reRender(), void();
@@ -165,16 +142,28 @@ void Simulation::nextDijkstraStep()
 		return;
 	processed.insert(v);
 	pendingSpecial.erase(v);
+
 	rect.x = (v / n) * rect.w, rect.y = (v % n) * rect.h;
 	SDL_RenderCopy(renderer, specialVertices.count(v) ? specialVisited : visited, NULL, &rect);
 	Fonts::displayText(renderer, to_string(weights[v]).c_str(), rect.x + rect.w / 2, rect.y + rect.h / 2);
 	SDL_RenderPresent(renderer);
-	for (auto u : adj[v])
+
+	auto updateDist = [&](int u)
 	{
 		int w = specialVertices.count(u) ? 0 : weights[u];
 		if (distances[currVertex][v] + w < distances[currVertex][u])
 			distances[currVertex][u] = distances[currVertex][v] + w, pq.push({-distances[currVertex][u], u});
-	}
+	};
+
+	int col = v / n, row = v % n;
+	if (Map::map[col + 1][row] != 1)
+		updateDist(n * (col + 1) + row);
+	if (Map::map[col][row + 1] != 1)
+		updateDist(n * col + row + 1);
+	if (Map::map[col - 1][row] != 1)
+		updateDist(n * (col - 1) + row);
+	if (Map::map[col][row - 1] != 1)
+		updateDist(n * col + row - 1);
 }
 
 void Simulation::initDijkstra()

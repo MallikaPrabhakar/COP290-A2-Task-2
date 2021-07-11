@@ -5,6 +5,7 @@
 #include "font.hpp"
 #include "map.hpp"
 #include "simulation.hpp"
+#include "sim.hpp"
 
 #define ICON "../assets/images/icon.tif"
 
@@ -53,7 +54,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	if (Simulation::initTextures(renderer) != 0)
+	if (Simulation::initTextures(renderer) != 0 || Sim::initTextures(renderer) != 0)
 	{
 		printf("Could not initialise textures\n");
 		handleExit(renderer, window);
@@ -61,5 +62,6 @@ int main(int argc, char *argv[])
 
 	Map::gen.seed(time(NULL));
 
-	Simulation::beginSimulation(15, 6);
+	// Simulation::beginSimulation(3, 0);
+	Sim::beginSimulation(15, 4);
 }
