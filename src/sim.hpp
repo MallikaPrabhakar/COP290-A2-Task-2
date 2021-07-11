@@ -45,7 +45,7 @@ private:
 	if (umap.find(key) == umap.end())
         cout << key << " not found\n\n";
 	*/
-	static unordered_map<int, vector<int>> adj;
+	static unordered_map<int, unordered_set<int>> adj;
 
 	static int n, k, currVertex, startVertex, endVertex, inProcess, moving, sourceVertex;
 
@@ -63,7 +63,7 @@ private:
 	static void assignWeights();
 	static void buildGraph();
 	static bool simulateNextStep();
-	static void startFW();
+	static void FW();
 	static void nextFWStep();
 	static void initDistance();
 	static void updatePos();

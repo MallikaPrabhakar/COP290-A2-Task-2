@@ -4,7 +4,7 @@ SDL_Renderer *Sim::renderer;
 SDL_Texture *Sim::background, *Sim::player, *Sim::tile, *Sim::specialTile, *Sim::wall, *Sim::path, *Sim::visited, *Sim::specialVisited;
 SDL_Rect Sim::rect;
 int Sim::n, Sim::k, Sim::currVertex, Sim::startVertex, Sim::endVertex, Sim::inProcess, Sim::moving, Sim::sourceVertex;
-unordered_map<int, vector<int>> Sim::adj;
+unordered_map<int, unordered_set<int>> Sim::adj;
 unordered_map<int, int> Sim::weights;
 unordered_map<int, unordered_map<int, int>> Sim::distances;
 unordered_set<int> Sim::specialVertices;
@@ -48,7 +48,6 @@ void Sim::beginSimulation(int _n, int _k)
 	Map::generateRandomMaze(n = _n); //sets up walls for the maze
 	generateSpecialVertices(k = _k); //negative valued cells are generated with random values (stores location in specialVertices as n*col+row)
 	assignWeights();				 //assign a positive weight to non negative weighted cells
-	buildGraph();					 //adjoint matrix is set up (walls ignored)
 	initDistance();					 //sets up the distance graph ([pos i: [pos j, weight]])
 	startVertex = n + 1, currVertex = startVertex, endVertex = (n - 2) * (n + 1);
 	moving = 0;
@@ -98,25 +97,6 @@ void Sim::assignWeights()
 				weights[n * col + row] = Map::genRandom(MAX_WEIGHT, 1);
 }
 
-//builds the graph
-void Sim::buildGraph()
-{
-	for (int col = 1; col < n - 1; ++col)
-		for (int row = 1; row < n - 1; ++row)
-			if (Map::map[col][row] != 1)
-			{
-				if (Map::map[col + 1][row] != 1)
-				{
-					adj[n * col + row].push_back(n * (col + 1) + row);
-					adj[n * (col + 1) + row].push_back(n * col + row);
-				}
-				if (Map::map[col][row + 1] != 1)
-				{
-					adj[n * col + row].push_back(n * col + row + 1);
-					adj[n * col + row + 1].push_back(n * col + row);
-				}
-			}
-}
 /*
 //simulates the next step
 bool Sim::simulateNextStep()
@@ -184,35 +164,60 @@ void Sim::nextDijkstraStep()
 //initialise the distance graph
 void Sim::initDistance()
 {
-	vector<int> vec;
-	for (int i = 0; i < adj.size(); i++)
+	for (int col = 1; col < n - 1; col++)
 	{
-		vec=adj[i];
-		for (int j = 0; j < adj[i].size(); j++)
+		for (int row = 1; row < n - 1; row++)
 		{
-			if (i==j)
+			if (Map::map[col][row] != 1)
 			{
-				distances[i][j]=0;
+				if (Map::map[col - 1][row] != 1)
+				{
+					distances[n * col + row][n * (col - 1) + row] = weights[n * (col - 1) + row];
+				}
+				if (Map::map[col][row - 1] != 1)
+				{
+					distances[n * col + row][n * (col) + row - 1] = weights[n * (col)-1 + row];
+				}
+				if (Map::map[col + 1][row] != 1)
+				{
+					distances[n * col + row][n * (col + 1) + row] = weights[n * (col + 1) + row];
+				}
+				if (Map::map[col][row + 1] != 1)
+				{
+					distances[n * col + row][n * (col) + row + 1] = weights[n * (col) + 1 + row];
+				}
 			}
-			else if (find(vec.begin(), vec.end(), j) == vec.end()){
-				distances[i][j] = INT_MAX; //not found
-			}
-			else
+		}
+	}
+}
+//start FW
+void Sim::FW()
+{
+	for (auto &p : distances)
+	{
+		for (auto &q : distances)
+		{
+			for (auto &r : distances)
 			{
-				distances[i][j] = weights[j];
+				if (q.second.count(p.first) && p.second.count(r.first))
+				{
+					if (q.second.count(r.first))
+					{
+						q.second[r.first] = min(q.second[r.first], q.second[p.first] + p.second[r.first]);
+					}
+					else
+					{
+						q.second[r.first] = q.second[p.first] + p.second[r.first];
+					}
+				}
 			}
 		}
 	}
 }
 
-//start FW
-void Sim::startFW(){
-
-}
-
 //
-void Sim::nextFWStep(){
-
+void Sim::nextFWStep()
+{
 }
 
 bool Sim::simulateNextStep()
@@ -224,7 +229,7 @@ bool Sim::simulateNextStep()
 	if (currVertex == endVertex)
 		return true;
 	SDL_Delay(20);
-	
+
 	int D = distances[currVertex][endVertex], best = endVertex, d = D;
 	printf("%d %d\n", currVertex, weights[currVertex]);
 	for (auto vertex : specialVertices)
@@ -236,13 +241,7 @@ bool Sim::simulateNextStep()
 	}
 	specialVertices.erase(best);
 	moving = 0, currVertex = best;
-	
 }
-
-
-
-
-
 
 // @TODO: literally todo
 void Sim::updatePos()
