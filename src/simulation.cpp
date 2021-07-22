@@ -3,12 +3,13 @@
 SDL_Renderer *Simulation::renderer;
 SDL_Texture *Simulation::background, *Simulation::player, *Simulation::tile, *Simulation::specialTile, *Simulation::wall, *Simulation::path, *Simulation::visited, *Simulation::specialVisited;
 SDL_Rect Simulation::rect;
-int Simulation::n, Simulation::k, Simulation::currVertex, Simulation::startVertex, Simulation::endVertex, Simulation::moving, Simulation::dijkstraPending, Simulation::sourceVertex;
+int Simulation::n, Simulation::k, Simulation::currVertex, Simulation::startVertex, Simulation::endVertex, Simulation::moving, Simulation::Heuristic::dijkstraPending, Simulation::Brute::minDist;
 unordered_map<int, int> Simulation::weights;
-unordered_map<int, unordered_map<int, int>> Simulation::distances;
-unordered_set<int> Simulation::specialVertices, Simulation::processed, Simulation::pendingSpecial;
-priority_queue<pair<int, int>> Simulation::pq;
+unordered_map<int, unordered_map<int, pair<int, int>>> Simulation::distances;
+unordered_set<int> Simulation::specialVertices, Simulation::Heuristic::processed, Simulation::Heuristic::pendingSpecial;
+priority_queue<pair<int, int>> Simulation::Heuristic::pq;
 unordered_set<int>::iterator Simulation::it;
+vector<int> Simulation::Brute::bestPermutation;
 
 int Simulation::initTextures(SDL_Renderer *_renderer)
 {
@@ -42,17 +43,109 @@ int Simulation::initTextures(SDL_Renderer *_renderer)
 	return 0;
 }
 
-void Simulation::beginSimulation(int _n, int _k)
+void Simulation::initSimulation(int _n, int _k)
 {
 	Map::generateRandomMaze(n = _n);
 	generateSpecialVertices(k = _k);
 	assignWeights();
 	startVertex = n + 1, currVertex = startVertex, endVertex = (n - 2) * (n + 1);
-	dijkstraPending = k + 1;
-	initDijkstra();
 	moving = 0;
-
 	rect = {0, 0, WINDOW_WIDTH / n, WINDOW_HEIGHT / n};
+
+	Heuristic::init();
+	Brute::init();
+}
+
+void Simulation::Brute::init()
+{
+	Brute::initDistances();
+
+	SDL_RenderClear(renderer);
+	Fonts::displayText(renderer, string("Performing pre-computation...").c_str(), WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2, 3, {255, 255, 255});
+	SDL_RenderPresent(renderer);
+
+	FW();
+	traverseAllPossibilities();
+}
+
+void Simulation::Brute::initDistances()
+{
+	distances.clear();
+	for (int col = 1; col < n - 1; col++)
+		for (int row = 1; row < n - 1; row++)
+			if (Map::map[col][row] != 1)
+			{
+				if (Map::map[col - 1][row] != 1)
+					distances[n * col + row][n * (col - 1) + row] = {max(0, weights[n * (col - 1) + row]), n * col + row};
+				if (Map::map[col][row - 1] != 1)
+					distances[n * col + row][n * (col) + row - 1] = {max(0, weights[n * (col)-1 + row]), n * col + row};
+				if (Map::map[col + 1][row] != 1)
+					distances[n * col + row][n * (col + 1) + row] = {max(0, weights[n * (col + 1) + row]), n * col + row};
+				if (Map::map[col][row + 1] != 1)
+					distances[n * col + row][n * (col) + row + 1] = {max(0, weights[n * (col) + 1 + row]), n * col + row};
+			}
+}
+
+void Simulation::Brute::FW()
+{
+	for (auto &p : distances)
+		for (auto &q : distances)
+			for (auto &r : distances)
+				if (q.second.count(p.first) && p.second.count(r.first))
+					if (!q.second.count(r.first) || q.second[p.first].first + p.second[r.first].first < q.second[r.first].first)
+						q.second[r.first] = {q.second[p.first].first + p.second[r.first].first, p.second[r.first].second};
+
+	for (auto v : specialVertices)
+	{
+		distances[startVertex][v].first += weights[v];
+		for (auto u : specialVertices)
+			if (v != u)
+				distances[v][u].first += weights[u];
+	}
+}
+
+void Simulation::Brute::traverseAllPossibilities()
+{
+	for (int mask = 0; mask < (1 << k); ++mask)
+	{
+		vector<int> currSpecial;
+		it = specialVertices.begin();
+		for (int i = 0; i < k; ++i)
+		{
+			if (mask & (1 << i))
+				currSpecial.push_back(*it);
+			++it;
+		}
+		sort(currSpecial.begin(), currSpecial.end());
+		do
+		{
+			simulatePermutation(currSpecial);
+		} while (next_permutation(currSpecial.begin(), currSpecial.end()));
+	}
+}
+
+void Simulation::Brute::simulatePermutation(vector<int> &currSpecial)
+{
+	reRender();
+	int currDist = 0, prevVertex = startVertex;
+	renderVisit(startVertex, 100);
+	for (auto &v : currSpecial)
+	{
+		currDist += distances[prevVertex][v].first, prevVertex = v;
+		renderVisit(v, 100);
+	}
+	currDist += distances[prevVertex][endVertex].first;
+	renderVisit(endVertex, 100);
+	SDL_Delay(100);
+	if (currDist < minDist)
+		minDist = currDist, bestPermutation = currSpecial;
+}
+
+void Simulation::Heuristic::init()
+{
+	Heuristic::dijkstraPending = k + 1;
+	Heuristic::initDijkstra();
+
 	SDL_Event e;
 
 	reRender();
@@ -65,7 +158,7 @@ void Simulation::beginSimulation(int _n, int _k)
 			if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE)
 				return;
 		}
-		simulateNextStep();
+		Heuristic::simulateNextStep();
 	}
 }
 
@@ -95,7 +188,7 @@ void Simulation::assignWeights()
 				weights[n * col + row] = Map::genRandom(MAX_WEIGHT, 1);
 }
 
-bool Simulation::simulateNextStep()
+bool Simulation::Heuristic::simulateNextStep()
 {
 	if (dijkstraPending)
 		return nextDijkstraStep(), false;
@@ -104,26 +197,25 @@ bool Simulation::simulateNextStep()
 	if (currVertex == endVertex)
 		return true;
 	SDL_Delay(20);
-	int D = distances[currVertex][endVertex], best = endVertex, d = D;
+	int D = distances[currVertex][endVertex].first, best = endVertex, d = D;
 	printf("%d %d\n", currVertex, weights[currVertex]);
-	for (auto vertex : specialVertices)
+	for (auto vertex : pendingSpecial)
 	{
-		int tempD = distances[currVertex][vertex];
+		int tempD = distances[currVertex][vertex].first;
 		// @TODO: improve the heuristic
-		if (tempD + distances[vertex][endVertex] + weights[vertex] < D && (tempD < d || tempD == d && tempD + distances[vertex][endVertex] + weights[vertex] < d + distances[best][endVertex] + weights[best]))
+		if (tempD + distances[vertex][endVertex].first + weights[vertex] < D && (tempD < d || tempD == d && tempD + distances[vertex][endVertex].first + weights[vertex] < d + distances[best][endVertex].first + weights[best]))
 			best = vertex, d = tempD;
 	}
-	specialVertices.erase(best);
+	pendingSpecial.erase(best);
 	moving = 0, currVertex = best;
 }
 
-void Simulation::nextDijkstraStep()
+void Simulation::Heuristic::nextDijkstraStep()
 {
-	SDL_Delay(20);
 	if (pq.empty() || pendingSpecial.empty())
 	{
 		if (--dijkstraPending == 0)
-			currVertex = startVertex;
+			currVertex = startVertex, pendingSpecial = specialVertices;
 		else
 		{
 			if (dijkstraPending == k)
@@ -142,17 +234,16 @@ void Simulation::nextDijkstraStep()
 		return;
 	processed.insert(v);
 	pendingSpecial.erase(v);
-
-	rect.x = (v / n) * rect.w, rect.y = (v % n) * rect.h;
-	SDL_RenderCopy(renderer, specialVertices.count(v) ? specialVisited : visited, NULL, &rect);
-	Fonts::displayText(renderer, to_string(weights[v]).c_str(), rect.x + rect.w / 2, rect.y + rect.h / 2);
-	SDL_RenderPresent(renderer);
+	renderVisit(v, 20);
 
 	auto updateDist = [&](int u)
 	{
 		int w = specialVertices.count(u) ? 0 : weights[u];
-		if (distances[currVertex][v] + w < distances[currVertex][u])
-			distances[currVertex][u] = distances[currVertex][v] + w, pq.push({-distances[currVertex][u], u});
+		if (distances[currVertex][v].first + w < distances[currVertex][u].first)
+		{
+			distances[currVertex][u] = {distances[currVertex][v].first + w, v};
+			pq.push({-distances[currVertex][u].first, u});
+		}
 	};
 
 	int col = v / n, row = v % n;
@@ -166,21 +257,30 @@ void Simulation::nextDijkstraStep()
 		updateDist(n * col + row - 1);
 }
 
-void Simulation::initDijkstra()
+void Simulation::Heuristic::initDijkstra()
 {
 	processed.clear(), pendingSpecial = specialVertices;
 	pendingSpecial.insert(endVertex);
 	while (!pq.empty())
 		pq.pop();
 	for (auto &p : weights)
-		distances[currVertex][p.first] = INT_MAX;
-	distances[currVertex][currVertex] = 0;
+		distances[currVertex][p.first] = {INT_MAX, -1};
+	distances[currVertex][currVertex] = {0, -1};
 	pq.push({0, currVertex});
 }
 
 // @TODO: literally todo
 void Simulation::updatePos()
 {
+}
+
+void Simulation::renderVisit(int v, int delay)
+{
+	SDL_Delay(delay);
+	rect.x = (v / n) * rect.w, rect.y = (v % n) * rect.h;
+	SDL_RenderCopy(renderer, specialVertices.count(v) ? specialVisited : visited, NULL, &rect);
+	Fonts::displayText(renderer, to_string(weights[v]).c_str(), rect.x + rect.w / 2, rect.y + rect.h / 2);
+	SDL_RenderPresent(renderer);
 }
 
 void Simulation::reRender()
