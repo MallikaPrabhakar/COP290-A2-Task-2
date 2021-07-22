@@ -1,5 +1,17 @@
 \documentclass[12pt]{report}
 \usepackage[utf8]{inputenc}
+\usepackage{geometry}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage{tcolorbox}
+\usepackage{minted}
+
+\geometry{
+    left=25mm,
+    top=25mm,
+    bottom=30mm,
+    right=25mm,
+}
 
 \begin{document}
 
@@ -29,40 +41,142 @@
 \pagenumbering{arabic}
 
 \chapter{Situation}
+\section{Story}
+Continuing the story from Assignment 2 Task 1, the monopolistic ruling body realised that 1v1 matches are slow and the rate of passing is still high (50\%). The material for vaccine generation was depleting rapidly and they were criticised for killing methods hence they decided to make a different test for analysing worth without involving deaths. They needed lesser percentage of people pass and find the physically and mentally strong people to give vaccines to.
+
+They finally decided on a normal maze game but with some twists. The maze was constructed on a rocky terrain with different sections of maze having different difficulty of traversal. Entire maze will be filled with staining gas (Non toxic gas which gets accumulated in lungs). There will be one time accessible anti-gas chambers which pump out certain quantity of staining gas from their lungs. The person who has the least content of staining gas in lungs is eligible for vaccine and others are barred from getting vaccines. In case of a tie regarding quantity of staining gas, the one who came out earlier will be eligible to obtain the vaccine.
+
+To check mental strength, They give the participants a map marked with terrain difficulty and anti-gas chamber functioning stats along with start and end gate locations as the game starts.
+
 \section{Problem statement}
+% random fact: number of Nodes in a n*n maze will be 2 * (n/2)^2 - 1, n > 1 and n is odd
+Given a map of the maze denoted with terrain difficulty, anti-gas chamber locations and values and starting and ending points, find and traverse the most efficient route fastest i.e. route which results in least staining gas concentration in lungs. Try to find it in the least time possible as well.
 
-The world competition of COVID-19 medicine collection was a fail. The method of making two people fight at a time was a really slow process, shortage of available vaccine was becoming visible and the winners were sometimes just lucky! To solve the problem and distribute vaccine faster and decimate the population, a twisted free for all was started. 10 people were released in the maze at once and whoever collected $k$ medicines out of the $n$ medicines stationed at different places in the maze and reached the end was declared the winner and rest were shot dead. This method was quicker and matched the vaccine production rate. The twisted money minded officials approved of this format for the game of life.
+This results in us creating two different algorithms, one with large complexity but the best answer and a faster heuristic approach.
 
-The instructions given to players were to ignore other 9 participants (so that they don't sabotage each other and win based on merit). They were given a map of the maze marked with the location of objectives 2 minutes before the map. Assuming that the walking/running speed is not a deciding factor of winning the competition, find the fastest way to collect the $k$ objectives first and reach the end of the maze before other competitors without wasting all the time on thinking.
+\section{Assumptions}
+Following are the general assumptions taken for the development of algorithms.
+\begin{itemize}
+    \item Players can't jump over walls or take illegal routes
+    \item Opponents act fairly and do not affect the game play of others hence are not included
+    \item The movement speed is considered to be same for all
+    \item Each individual anti gas chamber can be accessed once
+\end{itemize}
 
 \section{Mathematical Interpretation of the Problem Statement}
 
-An $m\times m$ sized maze is given with a total of $n$ objectives. Player starts at the entry gate. The motive is to collect $k$ out of the $n$ objectives and reach the end gate before the others. Find the most efficient path from start to end collecting 
+An $n\times n$ sized maze is given with a total of $k$ \textit{special nodes}. Each node $i$ has a weight $w_i$, with the \textit{special nodes} having negative weights and every other node having positive weights. Each  Player starts at the entry gate ($S$). The motive is to find the optimal path to the exit gate ($E$) minimising the value
+\begin{equation}
+    \sum_{i \in P}{c_i}
+\end{equation}
+where $P$ is the multi-set of nodes in the path taken from $S$ to $E$ and $c_i=0$ for all occurrences of $i \in K$ (where $K$ is the set of \textit{special nodes}) which is not the first one.
 
-\chapter{Solution 1}
+\chapter{Brute Force Approach}
 \section{Approach discussion}
-why and how
-\section{Algorithm}
-Insert algo approach here
+The simplest brute force approach is to check all possible situations, i.e., checking over the number of special vertices visited and the order of visiting. Formally stating, the algorithm finds the best path by iterating over the ordered power set of the $k$ vertices, $K$.\par
+The pre-computation would require computing the shortest path for all \textit{special} pairs. This can be easily done using the Floyd-Warshall Algorithm. However, there is a possibility of having cycles with negative path lengths. This can be resolved by first computing the path lengths assuming that the special vertices all have $0$ weights and then adding (the negative) weights of the special vertices $j$ for all ordered ${distance}(i, j)$ pairs. The correctness has been discussed \hyperref[sec:brute-correctness]{below}.\par
+The power set can be easily mapped using a bitmask. However, when ordering is introduced, we will need to check all permutations of each mask. This can be efficiently done using a recursive strategy (discussed in the \hyperref[sec:brute-pseudo]{pseudo-code} section).\par
+Once we are done with the pre-computation and have decided on a systematic iteration over all possibilities, all that remains is computing the cost of the path for each ordering of each mask which can be easily done using the distance matrix computed earlier.
 
-\section {Implementation}
+\section{Pseudo-code}
+\label{sec:brute-pseudo}
+\subsection{buildGraph}
+\begin{tcolorbox}
+\begin{minted}{c++}
+    // process the graph from the maze
+    // initialise the distances (stored as umap<int, umap<int, int>>)
+    buildGraph(maze, distances):
+      // iterate over all nodes in the maze
+      for (node: maze):
+        // add an edge for all neighbours to the current node
+        for (neighbour: neighbours(node)):
+          // if it is a special node, add an edge of weight zero
+          // (since negative cycles can exist)
+          if (isSpecial(neighbour)):
+            addDirectedEdge(node, neighbour, 0)
+            distances[node][neighbour] = 0
+          else:
+            addDirectedEdge(node, neighbour, weight[neighbour])
+            distances[node][neighbour] = weight[neighbour]
+\end{minted}
+\end{tcolorbox}
 
-\chapter{Solution 2}
+\subsection{modifiedFloydWarshall}
+\begin{tcolorbox}
+\begin{minted}{c++}
+    // perform regular Floyd-Warshall; then update relevant distances
+    modifiedFloydWarshall(distances):
+      regularFloydWarshall(distances)
+      for (node1: specialNodes):
+        distances[S][node1] += weight[node1]
+        for (node2: specialNodes):
+          if (node1 != node2):
+            distances[node1][node2] += weight[node2]
+\end{minted}
+\end{tcolorbox}
+
+\section {Proof of Correctness}
+\label{sec:brute-correctness}
+
+\chapter{Faster Solution using Heuristics}
 
 \section{Observations}
-Insert observations made and parameters used
+The optimal solution has a pre-computation which is very slow and computes a lot of redundant distance values which are never accessed. Only distances from \textit{start node} and \textit{special nodes} are required. Additionally, a lot of the elements of the ordered power set which are processed are clearly suboptimal and their computation should be ignored. For example, going to the farthest \textit{special node} and then coming back to the nearest \textit{special node}, wrt the \textit{start node}.\par
+The heuristic that will be discussed aims at optimising primarily on these two aspects. Instead of Floyd-Warshall algorithm, multiple runs of Dijkstra algorithm are done. However, since Dijkstra only works on graphs with non-negative weights, the weights of the special vertices are assumed to be $0$ when performing the algorithm.
 
-\subsection{Algorithm}
-Insert the heuristic algo
+\section{Heuristic Algorithm}
+The optimised algorithm uses a \textit{greedy} approach by choosing which \textit{special node} to move to next, or directly move to the \textit{exit node}, using the shortest path. The algorithm only considers those \textit{special nodes} which can reduce the path length on visiting, i.e., it considers nodes only if ${distance}({currentNode}, {specialNode}) + {distance}({specialNode}, {exitNode}) < {distance}({currentNode}, {exitNode})$. Out of all these nodes, it chooses the node which % TODO: correct heuristic
 
-\subsection{Implementation}
-Insert pseudo-code (using relevant DS, loops etc)
+\section{Pseudo-code}
+\subsection{buildGraph}
+\begin{tcolorbox}
+\begin{minted}{c++}
+    // process the graph from the maze
+    buildGraph(maze):
+      // iterate over all nodes in the maze
+      for (node: maze):
+        // add an edge for all neighbours to the current node
+        for (neighbour: neighbours(node)):
+          // if it is a special node, add an edge of weight zero
+          // (since Dijkstra doesn't work with negative edges)
+          if (isSpecial(neighbour)):
+            addDirectedEdge(node, neighbour, 0)
+          else:
+            addDirectedEdge(node, neighbour, weight[neighbour])
+\end{minted}
+\end{tcolorbox}
+
+\subsection{computeDistances}
+\begin{tcolorbox}
+\begin{minted}{c++}
+    // compute distances from startNode and all specialNodes
+    // to all other specialNodes and exitNode
+    computeDistances(graph, startNode, specialNodes):
+      // using a hash map to store distances from each source
+      // Dijkstra returns the distance vector
+      distances[startNode] = Dijkstra(startNode, graph)
+      for (node: specialNodes):
+        distances[node] = Dijkstra(node, graph)
+\end{minted}
+\end{tcolorbox}
+
+\subsection{findBestPath}
+\begin{tcolorbox}
+\begin{minted}{c++}
+    findBestPath(graph, distances, specialNodes, startNode, exitNode):
+      currentNode = startNode
+      pendingSpecialNodes = specialNodes
+      while (currentNode != exitNode):
+        D = distances[currentNode][exitNode]
+        bestNode = exitNode
+        for (node: pendingSpecialNodes):
+          // @TODO: insert the correct heuristic
+        pendingSpecial.remove(bestNode)
+        currNode = bestNode
+\end{minted}
+\end{tcolorbox}
 
 \chapter{Analysis}
-
-\section{Analysis of sol1}
-Insert complexity analysis
-\section{Analysis of sol2}
 
 \section{Simulation}
 Insert simulation details
