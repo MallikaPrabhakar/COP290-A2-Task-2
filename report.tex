@@ -189,7 +189,7 @@ The optimal solution has a pre-computation which is very slow and computes a lot
 The heuristic that will be discussed aims at optimising primarily on these two aspects. Instead of Floyd-Warshall algorithm, multiple runs of Dijkstra algorithm are done. However, since Dijkstra only works on graphs with non-negative weights, the weights of the special vertices are assumed to be $0$ when performing the algorithm.
 
 \section{Heuristic Algorithm} % @TODO
-The optimised algorithm uses a \textit{greedy} approach by choosing which \textit{special node} to move to next, or directly move to the \textit{exit node}, using the shortest path. The algorithm only considers those \textit{special nodes} which can reduce the path length on visiting, i.e., it considers nodes only if ${distance}({currentNode}, {specialNode}) + {distance}({specialNode}, {exitNode}) < {distance}({currentNode}, {exitNode})$. Out of all these nodes, it chooses the node which % TODO: correct heuristic
+The optimised algorithm uses a \textit{greedy} approach by choosing which \textit{special node} to move to next, or directly move to the \textit{exit node}, using the shortest path. The algorithm only considers those \textit{special nodes} which can reduce the path length on visiting, i.e., it considers nodes only if ${distance}({currentNode}, {specialNode}) + {distance}({specialNode}, {exitNode}) < {distance}({currentNode}, {exitNode})$. Out of all these nodes, it chooses the node which is the closest and offers the least reduction in the cost, if no other vertex was visited. Effectively, the algorithm looks ahead by a single step.
 
 \section{Pseudo-code}
 \subsection{buildGraph}
@@ -232,9 +232,16 @@ The optimised algorithm uses a \textit{greedy} approach by choosing which \texti
       pendingSpecialNodes = specialNodes
       while (currentNode != exitNode):
         D = distances[currentNode][exitNode]
+        closest = D
+        bestCost = D
         bestNode = exitNode
         for (node: pendingSpecialNodes):
-          // @TODO: insert the correct heuristic
+          d = distances[currNode][node]
+          tot = d + distances[node][exitNode] + weights[node]
+          if (tot < D):
+            if (d < closest && tot < bestCost):
+              closest = d
+              tot = bestCost
         pendingSpecial.remove(bestNode)
         currNode = bestNode
 \end{minted}
