@@ -3,7 +3,7 @@
 SDL_Renderer *Simulation::renderer;
 SDL_Texture *Simulation::background, *Simulation::player, *Simulation::tile, *Simulation::specialTile, *Simulation::wall, *Simulation::path, *Simulation::visited, *Simulation::specialVisited;
 SDL_Rect Simulation::rect;
-int Simulation::n, Simulation::k, Simulation::currVertex, Simulation::startVertex, Simulation::endVertex, Simulation::Heuristic::dijkstraPending, Simulation::minDist;
+int Simulation::n, Simulation::k, Simulation::currVertex, Simulation::startVertex, Simulation::endVertex, Simulation::Heuristic::dijkstraPending, Simulation::minDist, Simulation::test;
 unordered_map<int, int> Simulation::weights;
 unordered_map<int, unordered_map<int, pair<int, int>>> Simulation::distances;
 unordered_set<int> Simulation::specialVertices, Simulation::Heuristic::processed, Simulation::Heuristic::pendingSpecial;
@@ -44,16 +44,19 @@ int Simulation::initTextures(SDL_Renderer *_renderer)
 	return 0;
 }
 
-void Simulation::initSimulation(int _n, int _k)
+void Simulation::initSimulation(int _n, int _k, int _test)
 {
 	Map::generateRandomMaze(n = _n);
 	generateSpecialVertices(k = _k);
+	test = _test;
 	assignWeights();
 	startVertex = n + 1, currVertex = startVertex, endVertex = (n - 2) * (n + 1);
 	rect = {0, 0, WINDOW_WIDTH / n, WINDOW_HEIGHT / n};
+	reRender(1);
 
 	if (!Heuristic::init())
 		return;
+	test = _test;
 	Brute::init();
 }
 
@@ -61,11 +64,21 @@ bool Simulation::Brute::init()
 {
 	bestPath.clear();
 
-	SDL_RenderClear(renderer);
-	Fonts::displayText(renderer, string("Performing pre-computation...").c_str(), WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2, 3, {255, 255, 255});
-	SDL_RenderPresent(renderer);
+	if (!test)
+	{
+		SDL_RenderClear(renderer);
+		Fonts::displayText(renderer, string("Performing pre-computation...").c_str(), WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2, 3, {255, 255, 255});
+		SDL_RenderPresent(renderer);
+	}
 
-	return initDistances() && FW() && traverseAllPossibilities() && backtrack();
+	printf("Running brute\n");
+	auto t = clock();
+	if (initDistances() && FW() && traverseAllPossibilities())
+	{
+		printf("Time taken: %.6f\n", (clock() - t) * 1.0 / CLOCKS_PER_SEC);
+		return backtrack();
+	}
+	return false;
 }
 
 bool Simulation::Brute::initDistances()
@@ -162,6 +175,8 @@ bool Simulation::Brute::simulatePermutation(vector<int> &currSpecial)
 
 bool Simulation::Heuristic::init()
 {
+	printf("Running heuristic\n");
+	auto t = clock();
 	Heuristic::dijkstraPending = k + 1;
 	bestPath.clear();
 	Heuristic::initDijkstra();
@@ -170,7 +185,7 @@ bool Simulation::Heuristic::init()
 	while (true)
 	{
 		if (checkEscape())
-			break;
+			return false;
 		if (dijkstraPending)
 		{
 			nextDijkstraStep();
@@ -191,6 +206,7 @@ bool Simulation::Heuristic::init()
 		currVertex = best;
 		bestPath.push_back(best);
 	}
+	printf("Time taken: %.6f\n", (clock() - t) * 1.0 / CLOCKS_PER_SEC);
 	return backtrack();
 }
 
@@ -281,6 +297,7 @@ void Simulation::Heuristic::initDijkstra()
 
 bool Simulation::backtrack()
 {
+	test = 0;
 	reRender();
 	currVertex = startVertex;
 	minDist = 0;
@@ -305,12 +322,14 @@ bool Simulation::backtrack()
 		if (checkEscape())
 			return false;
 		if (e.type == SDL_KEYDOWN && (e.key.keysym.sym == SDLK_KP_ENTER || e.key.keysym.sym == SDLK_RETURN))
-			return true;
+				return true;
 	}
 }
 
 void Simulation::renderVisit(int v, int delay)
 {
+	if (test)
+		return;
 	SDL_Delay(delay);
 	rect.x = (v / n) * rect.w, rect.y = (v % n) * rect.h;
 	SDL_RenderCopy(renderer, specialVertices.count(v) ? specialVisited : visited, NULL, &rect);
@@ -318,9 +337,10 @@ void Simulation::renderVisit(int v, int delay)
 	SDL_RenderPresent(renderer);
 }
 
-void Simulation::reRender()
+void Simulation::reRender(bool first)
 {
-	SDL_RenderClear(renderer);
+	if (test && !first)
+		return;
 	for (int col = 0; col < n; ++col)
 		for (int row = 0; row < n; ++row)
 		{

@@ -5,6 +5,9 @@ CFLAGS = `sdl2-config --cflags`
 run: install
 	./simulation
 
+test: install
+	./simulation 1
+
 install: simulation
 
 simulation: $(objects)

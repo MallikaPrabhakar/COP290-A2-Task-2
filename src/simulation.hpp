@@ -60,7 +60,7 @@ private:
 	static SDL_Rect rect;
 	// the adjacency matrix
 	static unordered_map<int, vector<int>> adj;
-	static int n, k, currVertex, startVertex, endVertex, minDist;
+	static int n, k, currVertex, startVertex, endVertex, minDist, test;
 	// the prize or weight of the vertex, depending on whether it is a special vertex or not
 	static unordered_map<int, int> weights;
 	// store the distances computed
@@ -77,12 +77,12 @@ private:
 	static void assignWeights();
 	static bool backtrack();
 	static void renderVisit(int v, int delay);
-	static void reRender();
+	static void reRender(bool first = 0);
 	static bool checkEscape();
 
 public:
 	static int initTextures(SDL_Renderer *_renderer);
-	static void initSimulation(int _n, int _k);
+	static void initSimulation(int _n, int _k, int _test = 0);
 };
 
 #endif

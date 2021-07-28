@@ -61,5 +61,5 @@ int main(int argc, char *argv[])
 
 	Map::gen.seed(time(NULL));
 
-	Simulation::initSimulation(15, 4);
+	Simulation::initSimulation(15, 4, argc == 2);
 }
