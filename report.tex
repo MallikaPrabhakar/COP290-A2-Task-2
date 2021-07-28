@@ -2,6 +2,7 @@
 \usepackage[utf8]{inputenc}
 \usepackage{geometry}
 \usepackage{amsmath}
+\usepackage{amsthm}
 \usepackage{hyperref}
 \usepackage{tcolorbox}
 \usepackage{minted}
@@ -12,6 +13,9 @@
     bottom=30mm,
     right=25mm,
 }
+
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{claim}[theorem]{Claim}
 
 \begin{document}
 
@@ -58,9 +62,9 @@ This results in us creating two different algorithms, one with large complexity 
 Following are the general assumptions taken for the development of algorithms.
 \begin{itemize}
     \item Players can't jump over walls or take illegal routes
-    \item Opponents act fairly and do not affect the game play of others hence are not included
+    \item Opponents act fairly and do not affect the game play of others hence are not included in the simulation
     \item The movement speed is considered to be same for all
-    \item Each individual anti gas chamber can be accessed once
+    \item Each anti gas chamber can be accessed once
 \end{itemize}
 
 \section{Mathematical Interpretation of the Problem Statement}
@@ -73,7 +77,7 @@ where $P$ is the multi-set of nodes in the path taken from $S$ to $E$ and $c_i=0
 
 \chapter{Brute Force Approach}
 \section{Approach discussion}
-The simplest brute force approach is to check all possible situations, i.e., checking over the number of special vertices visited and the order of visiting. Formally stating, the algorithm finds the best path by iterating over the ordered power set of the $k$ vertices, $K$.\par
+The simplest brute force approach is to check all possible situations, i.e., checking over the number of special vertices visited and the order of visiting. Formally stating, the algorithm finds the best path by iterating over all permutations for each element of the power set of the $k$ vertices.\par
 The pre-computation would require computing the shortest path for all \textit{special} pairs. This can be easily done using the Floyd-Warshall Algorithm. However, there is a possibility of having cycles with negative path lengths. This can be resolved by first computing the path lengths assuming that the special vertices all have $0$ weights and then adding (the negative) weights of the special vertices $j$ for all ordered ${distance}(i, j)$ pairs. The correctness has been discussed \hyperref[sec:brute-correctness]{below}.\par
 The power set can be easily mapped using a bitmask. However, when ordering is introduced, we will need to check all permutations of each mask. This can be efficiently done using a recursive strategy (discussed in the \hyperref[sec:brute-pseudo]{pseudo-code} section).\par
 Once we are done with the pre-computation and have decided on a systematic iteration over all possibilities, all that remains is computing the cost of the path for each ordering of each mask which can be easily done using the distance matrix computed earlier.
@@ -105,7 +109,7 @@ Once we are done with the pre-computation and have decided on a systematic itera
 \begin{tcolorbox}
 \begin{minted}{c++}
     // perform regular Floyd-Warshall; then update relevant distances
-    modifiedFloydWarshall(distances):
+    modifiedFloydWarshall(distances, specialNodes):
       regularFloydWarshall(distances)
       for (node1: specialNodes):
         distances[S][node1] += weight[node1]
@@ -115,13 +119,56 @@ Once we are done with the pre-computation and have decided on a systematic itera
 \end{minted}
 \end{tcolorbox}
 
+\subsection{enumerateAllPermutations}
+\begin{tcolorbox}
+\begin{minted}{c++}
+    // enumerates all possibities and computes the path length
+    enumerateAllPermutations(distances, specialNodes):
+      bestDist = INF, ans = []
+      for (mask: [0, 1 << k)):
+        chosenSpecialNodes = []
+        for (i: [0, k)):
+          if mask & (1 << i):
+            chosenSpecialNodes.add(specialNodes[i])
+        sort(chosenSpecialNodes)
+        for (permutation: chosenSpecialNodes):
+          dist = 0, prevNode = startNode
+          for (node: permutation):
+            dist += distances[prevNode][node]
+            prevNode = node
+          dist += distances[prevNode][exitNode]
+          if (dist < bestDist):
+            bestDist = dist
+            ans = permutation
+      return (bestDist, ans)
+\end{minted}
+\end{tcolorbox}
+
 \section {Proof of Correctness}
 \label{sec:brute-correctness}
+\begin{claim}[property of pairwise distances]
+\label{claim:dist-prop}
+The \textbf{modified Floyd-Warshall} algorithm computes the correct distances for all pairs of nodes in $\{{startNode}, {endNode}\} \cup K$ (under the assumption that the path is a \textbf{straight path}).
+\end{claim}
+\noindent(\textbf{Straight path}: A straight path is a path from a node in the set $\{{startNode}, {endNode}\} \cup K$ to another node in the same set which has contribution from every other \textit{special node} equal to $0$ when computing the cost of the path)
+\begin{proof}
+We know that the weights of the \textit{special nodes} is negative only when we first encounter it.\\
+Since we only consider \textit{special paths}, the contribution of every other \textit{special node} to the path length is $0$, which is what we use during the \textit{Floyd-Warshall algorithm}. Additionally, the destination \textit{special node} always contributes to the path length (exactly once) and thus, the shortest path length can be computed as:
+\begin{equation}
+\begin{aligned}
+    &{min}({distance}(u, neighbour)) + {weight}({specialNode})\\
+    &= {FloydWarshallDistance}(u, {specialNode}) + {weight}({specialNode})
+\end{aligned}
+\end{equation}
+Hence, the correctness of the \textit{modified Floyd-Warshall} algorithm is proved.
+\end{proof}
+
+\section{Images}
 
 \chapter{Faster Solution using Heuristics}
 
 \section{Observations}
-The optimal solution has a pre-computation which is very slow and computes a lot of redundant distance values which are never accessed. Only distances from \textit{start node} and \textit{special nodes} are required. Additionally, a lot of the elements of the ordered power set which are processed are clearly suboptimal and their computation should be ignored. For example, going to the farthest \textit{special node} and then coming back to the nearest \textit{special node}, wrt the \textit{start node}.\par
+The optimal solution has a pre-computation which is very slow and computes a lot of redundant distance values which are never accessed. Only distances from \textit{start node} and \textit{special nodes} are required. Additionally, a lot of the permutations which are processed are clearly suboptimal and their computation should be ignored. For example, going to the farthest \textit{special node} and then coming back to the nearest \textit{special node}, wrt the \textit{start node}.\par
 The heuristic that will be discussed aims at optimising primarily on these two aspects. Instead of Floyd-Warshall algorithm, multiple runs of Dijkstra algorithm are done. However, since Dijkstra only works on graphs with non-negative weights, the weights of the special vertices are assumed to be $0$ when performing the algorithm.
 
 \section{Heuristic Algorithm}
@@ -163,7 +210,7 @@ The optimised algorithm uses a \textit{greedy} approach by choosing which \texti
 \subsection{findBestPath}
 \begin{tcolorbox}
 \begin{minted}{c++}
-    findBestPath(graph, distances, specialNodes, startNode, exitNode):
+    findBestPath(graph, distances, specialNodes):
       currentNode = startNode
       pendingSpecialNodes = specialNodes
       while (currentNode != exitNode):
@@ -175,11 +222,17 @@ The optimised algorithm uses a \textit{greedy} approach by choosing which \texti
         currNode = bestNode
 \end{minted}
 \end{tcolorbox}
+\section{Images}
+
+\chapter{Simulation Display}
+\section{Images}
+
 
 \chapter{Analysis}
 
-\section{Simulation}
-Insert simulation details
+\section{Runtime analysis for brute force approach}
+
+\section{Runtime analysis for Heuristics algorithm}
 
 \section{Comparison of the Two Solutions}
 Insert trade-off analysis between error and runtime
