@@ -44,7 +44,6 @@ private:
 
 	struct Brute
 	{
-
 		static bool init();
 		static bool initDistances();
 		static bool FW();
