@@ -298,25 +298,22 @@ void Simulation::Heuristic::initDijkstra()
 bool Simulation::backtrack()
 {
 	test = 0;
+	printf("Cost: %d\n", minDist);
 	reRender();
 	currVertex = startVertex;
-	minDist = 0;
 	for (auto &vertex : bestPath)
 	{
 		int v = vertex;
 		while (v != currVertex)
 		{
 			renderVisit(v, 40);
-			minDist += weights[v];
 			v = distances[currVertex][v].second;
 			if (checkEscape())
 				return false;
 		}
 		renderVisit(v, 100);
-		minDist += weights[v];
 		currVertex = vertex;
 	}
-	printf("Cost: %d\n", minDist);
 	while (true)
 	{
 		if (checkEscape())
