@@ -3,13 +3,14 @@
 SDL_Renderer *Simulation::renderer;
 SDL_Texture *Simulation::background, *Simulation::player, *Simulation::tile, *Simulation::specialTile, *Simulation::wall, *Simulation::path, *Simulation::visited, *Simulation::specialVisited;
 SDL_Rect Simulation::rect;
-int Simulation::n, Simulation::k, Simulation::currVertex, Simulation::startVertex, Simulation::endVertex, Simulation::moving, Simulation::Heuristic::dijkstraPending, Simulation::Brute::minDist;
+int Simulation::n, Simulation::k, Simulation::currVertex, Simulation::startVertex, Simulation::endVertex, Simulation::Heuristic::dijkstraPending, Simulation::minDist;
 unordered_map<int, int> Simulation::weights;
 unordered_map<int, unordered_map<int, pair<int, int>>> Simulation::distances;
 unordered_set<int> Simulation::specialVertices, Simulation::Heuristic::processed, Simulation::Heuristic::pendingSpecial;
 priority_queue<pair<int, int>> Simulation::Heuristic::pq;
 unordered_set<int>::iterator Simulation::it;
-vector<int> Simulation::Brute::bestPermutation;
+vector<int> Simulation::bestPath;
+SDL_Event Simulation::e;
 
 int Simulation::initTextures(SDL_Renderer *_renderer)
 {
@@ -49,32 +50,33 @@ void Simulation::initSimulation(int _n, int _k)
 	generateSpecialVertices(k = _k);
 	assignWeights();
 	startVertex = n + 1, currVertex = startVertex, endVertex = (n - 2) * (n + 1);
-	moving = 0;
 	rect = {0, 0, WINDOW_WIDTH / n, WINDOW_HEIGHT / n};
 
-	Heuristic::init();
+	if (!Heuristic::init())
+		return;
 	Brute::init();
 }
 
-void Simulation::Brute::init()
+bool Simulation::Brute::init()
 {
-	Brute::initDistances();
+	bestPath.clear();
 
 	SDL_RenderClear(renderer);
 	Fonts::displayText(renderer, string("Performing pre-computation...").c_str(), WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2, 3, {255, 255, 255});
 	SDL_RenderPresent(renderer);
 
-	FW();
-	traverseAllPossibilities();
+	return initDistances() && FW() && traverseAllPossibilities() && backtrack();
 }
 
-void Simulation::Brute::initDistances()
+bool Simulation::Brute::initDistances()
 {
 	distances.clear();
 	for (int col = 1; col < n - 1; col++)
 		for (int row = 1; row < n - 1; row++)
 			if (Map::map[col][row] != 1)
 			{
+				if (checkEscape())
+					return false;
 				if (Map::map[col - 1][row] != 1)
 					distances[n * col + row][n * (col - 1) + row] = {max(0, weights[n * (col - 1) + row]), n * col + row};
 				if (Map::map[col][row - 1] != 1)
@@ -84,28 +86,40 @@ void Simulation::Brute::initDistances()
 				if (Map::map[col][row + 1] != 1)
 					distances[n * col + row][n * (col) + row + 1] = {max(0, weights[n * (col) + 1 + row]), n * col + row};
 			}
+	return true;
 }
 
-void Simulation::Brute::FW()
+bool Simulation::Brute::FW()
 {
 	for (auto &p : distances)
 		for (auto &q : distances)
 			for (auto &r : distances)
+			{
+				if (checkEscape())
+					return false;
 				if (q.second.count(p.first) && p.second.count(r.first))
 					if (!q.second.count(r.first) || q.second[p.first].first + p.second[r.first].first < q.second[r.first].first)
 						q.second[r.first] = {q.second[p.first].first + p.second[r.first].first, p.second[r.first].second};
+			}
 
 	for (auto v : specialVertices)
 	{
 		distances[startVertex][v].first += weights[v];
 		for (auto u : specialVertices)
+		{
+			if (checkEscape())
+				return false;
 			if (v != u)
 				distances[v][u].first += weights[u];
+		}
 	}
+
+	return true;
 }
 
-void Simulation::Brute::traverseAllPossibilities()
+bool Simulation::Brute::traverseAllPossibilities()
 {
+	minDist = INT_MAX;
 	for (int mask = 0; mask < (1 << k); ++mask)
 	{
 		vector<int> currSpecial;
@@ -119,12 +133,14 @@ void Simulation::Brute::traverseAllPossibilities()
 		sort(currSpecial.begin(), currSpecial.end());
 		do
 		{
-			simulatePermutation(currSpecial);
+			if (!simulatePermutation(currSpecial))
+				return false;
 		} while (next_permutation(currSpecial.begin(), currSpecial.end()));
 	}
+	return true;
 }
 
-void Simulation::Brute::simulatePermutation(vector<int> &currSpecial)
+bool Simulation::Brute::simulatePermutation(vector<int> &currSpecial)
 {
 	reRender();
 	int currDist = 0, prevVertex = startVertex;
@@ -133,33 +149,49 @@ void Simulation::Brute::simulatePermutation(vector<int> &currSpecial)
 	{
 		currDist += distances[prevVertex][v].first, prevVertex = v;
 		renderVisit(v, 100);
+		if (checkEscape())
+			return false;
 	}
 	currDist += distances[prevVertex][endVertex].first;
 	renderVisit(endVertex, 100);
 	SDL_Delay(100);
 	if (currDist < minDist)
-		minDist = currDist, bestPermutation = currSpecial;
+		minDist = currDist, bestPath = currSpecial, bestPath.push_back(endVertex);
+	return true;
 }
 
-void Simulation::Heuristic::init()
+bool Simulation::Heuristic::init()
 {
 	Heuristic::dijkstraPending = k + 1;
+	bestPath.clear();
 	Heuristic::initDijkstra();
-
-	SDL_Event e;
 
 	reRender();
 	while (true)
 	{
-		if (SDL_PollEvent(&e))
+		if (checkEscape())
+			break;
+		if (dijkstraPending)
 		{
-			if (e.type == SDL_QUIT)
-				return;
-			if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE)
-				return;
+			nextDijkstraStep();
+			continue;
 		}
-		Heuristic::simulateNextStep();
+		if (currVertex == endVertex)
+			break;
+		SDL_Delay(20);
+		int D = distances[currVertex][endVertex].first, best = endVertex, d = D;
+		for (auto vertex : pendingSpecial)
+		{
+			int tempD = distances[currVertex][vertex].first;
+			if (tempD + distances[vertex][endVertex].first + weights[vertex] < D && (tempD < d || tempD == d && tempD + distances[vertex][endVertex].first + weights[vertex] < d + distances[best][endVertex].first + weights[best]))
+				best = vertex, d = tempD;
+		}
+		minDist += distances[currVertex][best].first + (pendingSpecial.count(best) ? weights[best] : 0);
+		pendingSpecial.erase(best);
+		currVertex = best;
+		bestPath.push_back(best);
 	}
+	return backtrack();
 }
 
 void Simulation::generateSpecialVertices(int k)
@@ -186,28 +218,6 @@ void Simulation::assignWeights()
 		for (int row = 0; row < n; ++row)
 			if (Map::map[col][row] == 0)
 				weights[n * col + row] = Map::genRandom(MAX_WEIGHT, 1);
-}
-
-bool Simulation::Heuristic::simulateNextStep()
-{
-	if (dijkstraPending)
-		return nextDijkstraStep(), false;
-	if (moving)
-		return updatePos(), false;
-	if (currVertex == endVertex)
-		return true;
-	SDL_Delay(20);
-	int D = distances[currVertex][endVertex].first, best = endVertex, d = D;
-	printf("%d %d\n", currVertex, weights[currVertex]);
-	for (auto vertex : pendingSpecial)
-	{
-		int tempD = distances[currVertex][vertex].first;
-		// @TODO: improve the heuristic
-		if (tempD + distances[vertex][endVertex].first + weights[vertex] < D && (tempD < d || tempD == d && tempD + distances[vertex][endVertex].first + weights[vertex] < d + distances[best][endVertex].first + weights[best]))
-			best = vertex, d = tempD;
-	}
-	pendingSpecial.erase(best);
-	moving = 0, currVertex = best;
 }
 
 void Simulation::Heuristic::nextDijkstraStep()
@@ -269,9 +279,34 @@ void Simulation::Heuristic::initDijkstra()
 	pq.push({0, currVertex});
 }
 
-// @TODO: literally todo
-void Simulation::updatePos()
+bool Simulation::backtrack()
 {
+	reRender();
+	currVertex = startVertex;
+	minDist = 0;
+	for (auto &vertex : bestPath)
+	{
+		int v = vertex;
+		while (v != currVertex)
+		{
+			renderVisit(v, 40);
+			minDist += weights[v];
+			v = distances[currVertex][v].second;
+			if (checkEscape())
+				return false;
+		}
+		renderVisit(v, 100);
+		minDist += weights[v];
+		currVertex = vertex;
+	}
+	printf("Cost: %d\n", minDist);
+	while (true)
+	{
+		if (checkEscape())
+			return false;
+		if (e.type == SDL_KEYDOWN && (e.key.keysym.sym == SDLK_KP_ENTER || e.key.keysym.sym == SDLK_RETURN))
+			return true;
+	}
 }
 
 void Simulation::renderVisit(int v, int delay)
@@ -307,4 +342,16 @@ void Simulation::reRender()
 				Fonts::displayText(renderer, to_string(weights[n * col + row]).c_str(), rect.x + rect.w / 2, rect.y + rect.h / 2);
 		}
 	SDL_RenderPresent(renderer);
+}
+
+bool Simulation::checkEscape()
+{
+	if (SDL_PollEvent(&e))
+	{
+		if (e.type == SDL_QUIT)
+			return true;
+		if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE)
+			return true;
+	}
+	return false;
 }

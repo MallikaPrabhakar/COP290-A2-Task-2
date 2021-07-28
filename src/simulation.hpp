@@ -37,22 +37,19 @@ private:
 		// the priority queue to perform Dijkstra
 		static priority_queue<pair<int, int>> pq;
 
-		static void init();
-		static bool simulateNextStep();
+		static bool init();
 		static void nextDijkstraStep();
 		static void initDijkstra();
 	};
 
 	struct Brute
 	{
-		static int minDist;
-		static vector<int> bestPermutation;
 
-		static void init();
-		static void initDistances();
-		static void FW();
-		static void traverseAllPossibilities();
-		static void simulatePermutation(vector<int> &currSpecial);
+		static bool init();
+		static bool initDistances();
+		static bool FW();
+		static bool traverseAllPossibilities();
+		static bool simulatePermutation(vector<int> &currSpecial);
 	};
 
 	// renderer to display the simulation
@@ -63,7 +60,7 @@ private:
 	static SDL_Rect rect;
 	// the adjacency matrix
 	static unordered_map<int, vector<int>> adj;
-	static int n, k, currVertex, startVertex, endVertex, moving;
+	static int n, k, currVertex, startVertex, endVertex, minDist;
 	// the prize or weight of the vertex, depending on whether it is a special vertex or not
 	static unordered_map<int, int> weights;
 	// store the distances computed
@@ -72,12 +69,16 @@ private:
 	static unordered_set<int> specialVertices;
 	// utility iterator
 	static unordered_set<int>::iterator it;
+	// SDL_Event
+	static SDL_Event e;
+	static vector<int> bestPath;
 
 	static void generateSpecialVertices(int k);
 	static void assignWeights();
-	static void updatePos();
+	static bool backtrack();
 	static void renderVisit(int v, int delay);
 	static void reRender();
+	static bool checkEscape();
 
 public:
 	static int initTextures(SDL_Renderer *_renderer);
