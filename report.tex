@@ -188,8 +188,13 @@ Hence, the most optimal path is computed using \hyperref[pseudo:perms]{\textit{e
 The optimal solution has a pre-computation which is very slow and computes a lot of redundant distance values which are never accessed. Only distances from \textit{start node} and \textit{special nodes} are required. Additionally, a lot of the permutations which are processed are clearly suboptimal and their computation should be ignored. For example, going to the farthest \textit{special node} and then coming back to the nearest \textit{special node}, wrt the \textit{start node}.\par
 The heuristic that will be discussed aims at optimising primarily on these two aspects. Instead of Floyd-Warshall algorithm, multiple runs of Dijkstra algorithm are done. However, since Dijkstra only works on graphs with non-negative weights, the weights of the special vertices are assumed to be $0$ when performing the algorithm.
 
+<<<<<<< HEAD
 \section{Heuristic Algorithm}
 The optimised algorithm uses a \textit{greedy} approach by choosing which \textit{special node} to move to next, or directly move to the \textit{exit node}, using the shortest path. The algorithm only considers those \textit{special nodes} which can reduce the path length on visiting, i.e., it considers nodes only if ${distance}({currentNode}, {specialNode}) + {distance}({specialNode}, {exitNode}) < {distance}({currentNode}, {exitNode})$. Out of all these nodes, it chooses the node which is the closest and if there are multiple closest nodes, it chooses the one which offers the least reduction in the cost, if no other vertex was visited. Effectively, the algorithm looks ahead by a single step.
+=======
+\section{Heuristic Algorithm} % @TODO
+The optimised algorithm uses a \textit{greedy} approach by choosing which \textit{special node} to move to next, or directly move to the \textit{exit node}, using the shortest path. The algorithm only considers those \textit{special nodes} which can reduce the path length on visiting, i.e., it considers nodes only if ${distance}({currentNode}, {specialNode}) + {distance}({specialNode}, {exitNode}) < {distance}({currentNode}, {exitNode})$. Out of all these nodes, it chooses the node which is the closest and offers the least reduction in the cost, if no other vertex was visited. Effectively, the algorithm looks ahead by a single step.
+>>>>>>> 5a697f1a84c54cee8e3f2f431d39619af53ec564
 
 \section{Pseudo-code}
 \subsection{buildGraph}
@@ -239,7 +244,11 @@ The optimised algorithm uses a \textit{greedy} approach by choosing which \texti
           d = distances[currNode][node]
           tot = d + distances[node][exitNode] + weights[node]
           if (tot < D):
+<<<<<<< HEAD
             if (d < closest || (d == closest && tot < bestCost)):
+=======
+            if (d < closest && tot < bestCost):
+>>>>>>> 5a697f1a84c54cee8e3f2f431d39619af53ec564
               closest = d
               tot = bestCost
         pendingSpecial.remove(bestNode)
