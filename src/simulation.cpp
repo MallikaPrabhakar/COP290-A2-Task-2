@@ -166,8 +166,7 @@ bool Simulation::Brute::simulatePermutation(vector<int> &currSpecial)
 			return false;
 	}
 	currDist += distances[prevVertex][endVertex].first;
-	renderVisit(endVertex, 100);
-	SDL_Delay(100);
+	renderVisit(endVertex, 200);
 	if (currDist < minDist)
 		minDist = currDist, bestPath = currSpecial, bestPath.push_back(endVertex);
 	return true;
@@ -193,7 +192,6 @@ bool Simulation::Heuristic::init()
 		}
 		if (currVertex == endVertex)
 			break;
-		SDL_Delay(20);
 		int D = distances[currVertex][endVertex].first, best = endVertex, d = D;
 		for (auto vertex : pendingSpecial)
 		{
