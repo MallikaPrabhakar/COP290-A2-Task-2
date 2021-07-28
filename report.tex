@@ -6,7 +6,8 @@
 \usepackage{hyperref}
 \usepackage{tcolorbox}
 \usepackage{minted}
-
+\usepackage{multirow}
+\usepackage{multicol}
 \geometry{
     left=25mm,
     top=25mm,
@@ -120,6 +121,7 @@ Once we are done with the pre-computation and have decided on a systematic itera
 \end{tcolorbox}
 
 \subsection{enumerateAllPermutations}
+\label{pseudo:perms}
 \begin{tcolorbox}
 \begin{minted}{c++}
     // enumerates all possibities and computes the path length
@@ -144,13 +146,15 @@ Once we are done with the pre-computation and have decided on a systematic itera
 \end{minted}
 \end{tcolorbox}
 
-\section {Proof of Correctness} % @TODO
+\section {Proof of Correctness}
 \label{sec:brute-correctness}
+
 \begin{claim}[property of pairwise distances]
 \label{claim:dist-prop}
 The \textbf{modified Floyd-Warshall} algorithm computes the correct distances for all pairs of nodes in $\{{startNode}, {endNode}\} \cup K$ (under the assumption that the path is a \textbf{straight path}).
 \end{claim}
 \noindent(\textbf{Straight path}: A straight path is a path from a node in the set $\{{startNode}, {endNode}\} \cup K$ to another node in the same set which has contribution from every other \textit{special node} equal to $0$ when computing the cost of the path)
+
 \begin{proof}
 We know that the weights of the \textit{special nodes} is negative only when we first encounter it.\\
 Since we only consider \textit{special paths}, the contribution of every other \textit{special node} to the path length is $0$, which is what we use during the \textit{Floyd-Warshall algorithm}. Additionally, the destination \textit{special node} always contributes to the path length (exactly once) and thus, the shortest path length can be computed as:
@@ -161,6 +165,19 @@ Since we only consider \textit{special paths}, the contribution of every other \
 \end{aligned}
 \end{equation}
 Hence, the correctness of the \textit{modified Floyd-Warshall} algorithm is proved.
+\end{proof}
+
+\begin{claim}[correctness of enumerateAllPermutations]
+The \textit{straight paths} computed as defined in \hyperref[claim:dist-prop]{\textbf{claim 2.3.1}} can be used to compute the best path in the function \hyperref[pseudo:perms]{\textbf{enumerateAllPermutations}}.
+\end{claim}
+
+\begin{proof}
+The function \hyperref[pseudo:perms]{\textit{enumerateAllPermutations}} considers all permutations of every subset of the powerset of the special nodes.\\
+Consider the ordered set $B$, which is the set of the the special nodes that are visited in the path with the least cost.\\
+It can be shown that the shortest path from $S$ to $E$ which traverses through the nodes in $B$ can be constructed using \textit{straight path} between $S$ and the first element of $B$, \textit{straight paths} between every consecutive element in $B$ and the \textit{straight path} between the last element of $B$ and $E$.\\
+Conversely, assume that none of the path between any two consecutive points is not the straight path. Using \hyperref[claim:dist-prop]{\textit{claim 2.3.1}}, the shortest path between the given two nodes is equal to the path length computed by the modified algo since no other special node is visited between the two (otherwise the two nodes would not have been consecutive in the order of visiting).\\
+Therefore, the length of the path between these two nodes is larger than the shortest possible path and hence the total path length from $S$ to $E$ would be larger. This is a contradiction to the fact that none of the path is a \textit{straight path}.
+Hence, the most optimal path is computed using \hyperref[pseudo:perms]{\textit{enumerateAllPermutations}}.
 \end{proof}
 
 \section{Images} % @TODO
@@ -229,7 +246,7 @@ The optimised algorithm uses a \textit{greedy} approach by choosing which \texti
 
 
 \chapter{Analysis} % @TODO
-We are considering the following runtimes by not adding the time taken to generate a maze and set special vertices along with assigning weight to individual vertex.\par % it looks more sophisticated ok :')m :P
+We are considering the following runtimes by not adding the time taken to generate a maze and set special vertices along with assigning weight to individual vertex.\par
 For completeness, following are the time and space complexities of the functions called before calling the brute force and heuristic approaches:
 
 \begin{center}
@@ -265,7 +282,7 @@ There are three functions in the brute force approach which are called in succes
 \end{aligned}
 \end{equation}
 
-\section{Runtime analysis for Heuristics algorithm}
+\section{Runtime analysis for Heuristic algorithm}
 There are three functions in this approach as well which are called in succession. Thus the total time complexity is sum of the individual time complexities.
 \begin{equation}
 \begin{aligned}
@@ -278,6 +295,38 @@ There are three functions in this approach as well which are called in successio
 
 \section{Comparison of the Two Solutions}
 Insert trade-off analysis between error and runtime
+
+\begin{center}
+\begin{tabular}{ |c|c||c|c|c|c| } 
+ \hline
+ \multirow{2}{*}{n} &
+ \multirow{2}{*}{k} & \multicolumn{2}{|c|}{Brute Force} & \multicolumn{2}{|c|}{Heuristic Algorithm}\\
+ \cline{3-6}
+ & & time taken & cost &time taken & cost \\
+ \hline\hline
+ 17 & 8 & $4.449737$ & $-54$  & $0.009503$ & $-54$\\
+ \hline
+ 17 & 8 & $5.278958$& $2$  & $0.015527$& $9$\\ 
+ \hline
+ 14 & 3 & $5.278958$& $2$  & $0.015527$& $9$\\ 
+ \hline
+ 14 & 3 & $5.278958$& $2$  & $0.015527$& $9$\\ 
+ \hline
+ 10 & 9 & $5.278958$& $2$  & $0.015527$& $9$\\ 
+ \hline
+ 10 & 9 & $5.278958$& $2$  & $0.015527$& $9$\\ 
+ \hline
+ 15 & 4 & $5.278958$& $2$  & $0.015527$& $9$\\ 
+ \hline
+ 15 & 4 & $5.278958$& $2$  & $0.015527$& $9$\\ 
+ \hline
+ 6 & 7 & $5.278958$& $2$  & $0.015527$& $9$\\ 
+ \hline
+ 6 & 7 & $5.278958$& $2$  & $0.015527$& $9$\\ 
+ \hline
+ 
+\end{tabular}
+\end{center}
 
 
 \end{document}
