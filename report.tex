@@ -1,5 +1,7 @@
 \documentclass[12pt]{report}
 \usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage{subcaption}
 \usepackage{geometry}
 \usepackage{amsmath}
 \usepackage{amsthm}
@@ -180,16 +182,14 @@ Therefore, the length of the path between these two nodes is larger than the sho
 Hence, the most optimal path is computed using \hyperref[pseudo:perms]{\textit{enumerateAllPermutations}}.
 \end{proof}
 
-\section{Images} % @TODO
-
 \chapter{Faster Solution using Heuristics}
 
 \section{Observations}
 The optimal solution has a pre-computation which is very slow and computes a lot of redundant distance values which are never accessed. Only distances from \textit{start node} and \textit{special nodes} are required. Additionally, a lot of the permutations which are processed are clearly suboptimal and their computation should be ignored. For example, going to the farthest \textit{special node} and then coming back to the nearest \textit{special node}, wrt the \textit{start node}.\par
 The heuristic that will be discussed aims at optimising primarily on these two aspects. Instead of Floyd-Warshall algorithm, multiple runs of Dijkstra algorithm are done. However, since Dijkstra only works on graphs with non-negative weights, the weights of the special vertices are assumed to be $0$ when performing the algorithm.
 
-\section{Heuristic Algorithm} % @TODO
-The optimised algorithm uses a \textit{greedy} approach by choosing which \textit{special node} to move to next, or directly move to the \textit{exit node}, using the shortest path. The algorithm only considers those \textit{special nodes} which can reduce the path length on visiting, i.e., it considers nodes only if ${distance}({currentNode}, {specialNode}) + {distance}({specialNode}, {exitNode}) < {distance}({currentNode}, {exitNode})$. Out of all these nodes, it chooses the node which % TODO: correct heuristic
+\section{Heuristic Algorithm}
+The optimised algorithm uses a \textit{greedy} approach by choosing which \textit{special node} to move to next, or directly move to the \textit{exit node}, using the shortest path. The algorithm only considers those \textit{special nodes} which can reduce the path length on visiting, i.e., it considers nodes only if ${distance}({currentNode}, {specialNode}) + {distance}({specialNode}, {exitNode}) < {distance}({currentNode}, {exitNode})$. Out of all these nodes, it chooses the node which is the closest and if there are multiple closest nodes, it chooses the one which offers the least reduction in the cost, if no other vertex was visited. Effectively, the algorithm looks ahead by a single step.
 
 \section{Pseudo-code}
 \subsection{buildGraph}
@@ -232,20 +232,61 @@ The optimised algorithm uses a \textit{greedy} approach by choosing which \texti
       pendingSpecialNodes = specialNodes
       while (currentNode != exitNode):
         D = distances[currentNode][exitNode]
+        closest = D
+        bestCost = D
         bestNode = exitNode
         for (node: pendingSpecialNodes):
-          // @TODO: insert the correct heuristic
+          d = distances[currNode][node]
+          tot = d + distances[node][exitNode] + weights[node]
+          if (tot < D):
+            if (d < closest || (d == closest && tot < bestCost)):
+              closest = d
+              tot = bestCost
         pendingSpecial.remove(bestNode)
         currNode = bestNode
 \end{minted}
 \end{tcolorbox}
-\section{Images} % @TODO
 
-\chapter{Simulation Display} % @TODO
-\section{Images}
+\chapter{Simulation Display}
+\section{Heuristic Slightly sub-Optimal}
+\begin{figure}[h]
+    \begin{subfigure}{0.5\textwidth}
+    \centering
+    \includegraphics[width=0.9\linewidth]{assets/latex/differentPath/hpath.png}
+    \caption{Path chosen by heuristic algorithm (darker vertices are visited); runtime = 0.22s; cost = -19}
+    \end{subfigure}
+    \begin{subfigure}{0.5\textwidth}
+    \centering
+    \includegraphics[width=0.9\linewidth]{assets/latex/differentPath/bpath.png}
+    \caption{Path chosen by brute force algorithm (darker vertices are visited); runtime = 7.22s; cost = -29}
+    \end{subfigure}
+\end{figure}
+\begin{figure}
+    \centering
+    \includegraphics[width=0.4\linewidth]{assets/latex/differentPath/stats.png}
+    \caption{Runtime and cost}
+\end{figure}
 
+\section{Heuristic Optimal}
+\begin{figure}[h]
+    \begin{subfigure}{0.5\textwidth}
+    \centering
+    \includegraphics[width=0.9\linewidth]{assets/latex/samePath/hpath.png}
+    \caption{Path chosen by heuristic algorithm (darker vertices are visited); runtime = 0.24s; cost = 18}
+    \end{subfigure}
+    \begin{subfigure}{0.5\textwidth}
+    \centering
+    \includegraphics[width=0.9\linewidth]{assets/latex/samePath/bpath.png}
+    \caption{Path chosen by brute force algorithm (darker vertices are visited); runtime = 1.53s; cost = 18}
+    \end{subfigure}
+\end{figure}
+\begin{figure}
+    \centering
+    \includegraphics[width=0.33\linewidth]{assets/latex/samePath/stats.png}
+    \caption{Runtime and cost}
+\end{figure}
 
-\chapter{Analysis} % @TODO
+\chapter{Analysis}
 We are considering the following runtimes by not adding the time taken to generate a maze and set special vertices along with assigning weight to individual vertex.\par
 For completeness, following are the time and space complexities of the functions called before calling the brute force and heuristic approaches:
 
@@ -297,36 +338,51 @@ There are three functions in this approach as well which are called in successio
 Insert trade-off analysis between error and runtime
 
 \begin{center}
-\begin{tabular}{ |c|c||c|c|c|c| } 
+\begin{tabular}{ |c|c||c|c|c|c|c|c| } 
  \hline
  \multirow{2}{*}{n} &
- \multirow{2}{*}{k} & \multicolumn{2}{|c|}{Brute Force} & \multicolumn{2}{|c|}{Heuristic Algorithm}\\
- \cline{3-6}
- & & time taken & cost &time taken & cost \\
+ \multirow{2}{*}{k} & \multicolumn{3}{|c|}{Brute Force} & \multicolumn{3}{|c|}{Heuristic Algorithm}\\
+ \cline{3-8}
+ & & time taken & cost & chosen cells
+ &time taken & cost & chosen cells\\
  \hline\hline
- 17 & 8 & $4.449737$ & $-54$  & $0.009503$ & $-54$\\
+ 17 & 8 & $4.187510$ & $-4$ & 5 & $0.009284$ & $-4$ & 5\\
  \hline
- 17 & 8 & $5.278958$& $2$  & $0.015527$& $9$\\ 
+ 17 & 8 & $5.511454$& $-44$ & 7 & $0.010593$& $-26$& 4\\ 
  \hline
- 14 & 3 & $5.278958$& $2$  & $0.015527$& $9$\\ 
+ 15 & 3 & $1.364807$ & $33$  & 2& $0.003830$& $33$ & 2\\ 
  \hline
- 14 & 3 & $5.278958$& $2$  & $0.015527$& $9$\\ 
+ 15 & 3 & $1.443526$& $49$ & 1  & $0.004981$& $52$ & 3\\  
  \hline
- 10 & 9 & $5.278958$& $2$  & $0.015527$& $9$\\ 
+ 11 & 7 & $0.300426$& $-22$& 6  & $0.004489$& $-22$ &6\\  
  \hline
- 10 & 9 & $5.278958$& $2$  & $0.015527$& $9$\\ 
+ 11 & 7 & $0.319058$& $-53$  & 6 & $0.004724$& $-45$&4\\
+ \hline 
+ 15 & 4 & $1.389357$& $35$ & 2 & $0.005482$& $35$& 2\\  
  \hline
- 15 & 4 & $5.278958$& $2$  & $0.015527$& $9$\\ 
+ 15 & 4 & $1.474679$& $-2$ & 3 & $0.004966$& $-2$& 3 \\  
  \hline
- 15 & 4 & $5.278958$& $2$  & $0.015527$& $9$\\ 
+ 9 & 6 & $0.072333$& $-63$ & 6 & $0.002307$& $-44$& 4 \\  %todo
  \hline
- 6 & 7 & $5.278958$& $2$  & $0.015527$& $9$\\ 
- \hline
- 6 & 7 & $5.278958$& $2$  & $0.015527$& $9$\\ 
+ 17 & 2 & $3.298533$& $86$ & 0& $0.003558$& $86$&0 \\  %todo
  \hline
  
 \end{tabular}
 \end{center}
+
+\section{Observations}
+
+Following observations are made with respect to both the algorithms:
+\begin{itemize}
+  \item Time take to find the path using brute force algorithm is very large compared to the heuristic approach
+  \item Brute force always provides the path of least cost but at a heavy price of time
+  \item Heuristic approach does not consider the fact that the path might contains another special vertex hence it provides sub optimal solutions at times
+  \item Time complexity of Brute force algorithm is: $O(n^6 + k! \times k)$
+  \item Time complexity of Heuristic algorithm is: $O(k \times n^4 \times log(n) + k^2)$
+  \item For a large n:k ratio, brute force and heuristic algorithm give similar paths as solution with heuristic algorithm being way faster
+  
+\end{itemize}
+
 
 
 \end{document}
