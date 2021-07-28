@@ -144,7 +144,7 @@ Once we are done with the pre-computation and have decided on a systematic itera
 \end{minted}
 \end{tcolorbox}
 
-\section {Proof of Correctness}
+\section {Proof of Correctness} % @TODO
 \label{sec:brute-correctness}
 \begin{claim}[property of pairwise distances]
 \label{claim:dist-prop}
@@ -163,7 +163,7 @@ Since we only consider \textit{special paths}, the contribution of every other \
 Hence, the correctness of the \textit{modified Floyd-Warshall} algorithm is proved.
 \end{proof}
 
-\section{Images}
+\section{Images} % @TODO
 
 \chapter{Faster Solution using Heuristics}
 
@@ -171,7 +171,7 @@ Hence, the correctness of the \textit{modified Floyd-Warshall} algorithm is prov
 The optimal solution has a pre-computation which is very slow and computes a lot of redundant distance values which are never accessed. Only distances from \textit{start node} and \textit{special nodes} are required. Additionally, a lot of the permutations which are processed are clearly suboptimal and their computation should be ignored. For example, going to the farthest \textit{special node} and then coming back to the nearest \textit{special node}, wrt the \textit{start node}.\par
 The heuristic that will be discussed aims at optimising primarily on these two aspects. Instead of Floyd-Warshall algorithm, multiple runs of Dijkstra algorithm are done. However, since Dijkstra only works on graphs with non-negative weights, the weights of the special vertices are assumed to be $0$ when performing the algorithm.
 
-\section{Heuristic Algorithm}
+\section{Heuristic Algorithm} % @TODO
 The optimised algorithm uses a \textit{greedy} approach by choosing which \textit{special node} to move to next, or directly move to the \textit{exit node}, using the shortest path. The algorithm only considers those \textit{special nodes} which can reduce the path length on visiting, i.e., it considers nodes only if ${distance}({currentNode}, {specialNode}) + {distance}({specialNode}, {exitNode}) < {distance}({currentNode}, {exitNode})$. Out of all these nodes, it chooses the node which % TODO: correct heuristic
 
 \section{Pseudo-code}
@@ -222,17 +222,59 @@ The optimised algorithm uses a \textit{greedy} approach by choosing which \texti
         currNode = bestNode
 \end{minted}
 \end{tcolorbox}
+\section{Images} % @TODO
+
+\chapter{Simulation Display} % @TODO
 \section{Images}
 
-\chapter{Simulation Display}
-\section{Images}
 
+\chapter{Analysis} % @TODO
+We are considering the following runtimes by not adding the time taken to generate a maze and set special vertices along with assigning weight to individual vertex.\par % it looks more sophisticated ok :')m :P
+For completeness, following are the time and space complexities of the functions called before calling the brute force and heuristic approaches:
 
-\chapter{Analysis}
+\begin{center}
+\begin{tabular}{ |l||c|c| } 
+ \hline
+ Function name & time complexity &space complexity \\ 
+ \hline\hline
+ generateSpecialVertices & $O(k)$  & $O(1)$\\
+ \hline
+ assignWeights & $O(n^2)$& $O(1)$\\ 
+ \hline
+ backtrack & $O(n^2)$  & $O(1)$\\
+ \hline
+ generateRandomMaze & $O(n^2)$ & $O(n^2)$ \\ 
+ \hline
+ removeWalls & $O(n^2)$ & $O(1)$\\ %nothing new 
+ \hline
+ generateRandomWalls & $O(n^2)$ & $O(n^2)$ \\ %wall array and stack
+ \hline
+ 
+\end{tabular}
+\end{center}
+
 
 \section{Runtime analysis for brute force approach}
+There are three functions in the brute force approach which are called in succession. Thus the total time complexity is sum of the individual time complexities.
+\begin{equation}
+\begin{aligned}
+    &T({buildGraph}) + T({modifiedFloydWarshall}) + T({enumerateAllPermutations})\\
+    &= O(n^4) + O(n^6 + k^2) + O(\sum_{i=0}^{k}{\binom{k}{i}\times(i\times log(i) + i!\times i)})\\
+    &= O(n^4) + O(n^6 + k^2) + O(\sum_{i=0}^{k}{\binom{k}{i}\times(i!\times i)})\\
+    &= O(n^6 + k! \times k)
+\end{aligned}
+\end{equation}
 
 \section{Runtime analysis for Heuristics algorithm}
+There are three functions in this approach as well which are called in succession. Thus the total time complexity is sum of the individual time complexities.
+\begin{equation}
+\begin{aligned}
+    &T({buildGraph}) + T({computeDistances}) + T({findBestPath})\\
+    &= O(n^4) + O(k \times T({Dijkstra})) + O(k^2)\\
+    &= O(n^4) + O(k \times (n^2 + n^4 \times log(n^2))) + O(k^2)\\
+    &= O(k \times n^4 \times log(n) + k^2)
+\end{aligned}
+\end{equation}
 
 \section{Comparison of the Two Solutions}
 Insert trade-off analysis between error and runtime
